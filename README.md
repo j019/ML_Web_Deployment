@@ -137,4 +137,4 @@ gunicorn --bind 0.0.0.0:9000 app:app
 
 ## License
 
-No license file is currently included in this repository. Add one (e.g. MIT) if you intend for others to reuse this code.
+No license file is currently included in this repository.
