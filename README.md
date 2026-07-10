@@ -1,4 +1,4 @@
-# ML Web Deployment — House Price Predictor
+# ML Web Deployment - House Price Predictor
 
 A Flask web app that serves a Ridge regression model predicting house prices from a handful of property features (King County, WA housing data). Fill in a small form, get back an estimated price.
 
@@ -25,13 +25,13 @@ The model is trained on six features, in this exact order:
 | 5 | `bedrooms` | Number of bedrooms |
 | 6 | `floors` | Number of floors |
 
-> **⚠️ Field order matters.** `app.py` reads submitted values with `request.form.values()`, which has no field names attached — it just takes values in the order the HTML inputs appear on the page. That order **must** match the `top_6` list in `model.py` exactly (`sqft_living15 → sqft_above → grade → condition → bedrooms → floors`), or the model will silently score the wrong columns. If you add, remove, or reorder form fields, update `model.py`'s `top_6` list (and retrain) to match, or vice versa.
+> **⚠️ Field order matters.** `app.py` reads submitted values with `request.form.values()`, which has no field names attached - it just takes values in the order the HTML inputs appear on the page. That order **must** match the `top_6` list in `model.py` exactly (`sqft_living15 → sqft_above → grade → condition → bedrooms → floors`), or the model will silently score the wrong columns. If you add, remove, or reorder form fields, update `model.py`'s `top_6` list (and retrain) to match, or vice versa.
 
 ## Project structure
 
 ```
 ML_Web_Deployment/
-├── app.py                       # Flask app — serves the form and the /predict endpoint
+├── app.py                       # Flask app - serves the form and the /predict endpoint
 ├── model.py                     # Trains the Ridge regression model and writes model.pkl
 ├── model.pkl                    # Pre-trained model (pickled)
 ├── house_price_prediction.csv   # Training dataset
@@ -72,7 +72,7 @@ python model.py
 python app.py
 ```
 
-The server starts on `http://0.0.0.0:9000` — open **http://127.0.0.1:9000** in your browser.
+The server starts on `http://0.0.0.0:9000` - open **http://127.0.0.1:9000** in your browser.
 
 ## Usage
 
@@ -81,7 +81,7 @@ The server starts on `http://0.0.0.0:9000` — open **http://127.0.0.1:9000** in
 3. Submit the form via the **Predict** button.
 4. The predicted price is rendered back on the same page.
 
-> Note: the form submits via `POST`. Visiting `/predict` directly (or refreshing the results page) sends a `GET` request and will return a `405 Method Not Allowed` — always submit through the form.
+> Note: the form submits via `POST`. Visiting `/predict` directly (or refreshing the results page) sends a `GET` request and will return a `405 Method Not Allowed` - always submit through the form.
 
 ## Deploying to an EC2 instance
 
@@ -102,7 +102,7 @@ Then start the app:
 python3 app.py
 ```
 
-Since `app.run(host="0.0.0.0", port=9000)` is already set in `app.py`, the server listens on all interfaces — make sure port `9000` is open in your EC2 instance's security group, then visit `http://<your-ec2-public-ip>:9000`.
+Since `app.run(host="0.0.0.0", port=9000)` is already set in `app.py`, the server listens on all interfaces - make sure port `9000` is open in your EC2 instance's security group, then visit `http://<your-ec2-public-ip>:9000`.
 
 For production use, consider running behind Gunicorn + Nginx instead of Flask's built-in dev server:
 ```bash
@@ -112,16 +112,16 @@ gunicorn --bind 0.0.0.0:9000 app:app
 
 ## Tech stack
 
-- **Python**, **Flask** — web server
-- **pandas** — data loading
-- **scikit-learn** — Ridge regression model
-- **NumPy** — array handling for prediction input
-- **HTML/CSS** — form UI
+- **Python**, **Flask** - web server
+- **pandas** - data loading
+- **scikit-learn** - Ridge regression model
+- **NumPy** - array handling for prediction input
+- **HTML/CSS** - form UI
 
 ## Known limitations
 
 - Form inputs are cast with `int(x)`, so decimal values will raise a `ValueError`. Stick to whole numbers.
-- No server-side validation beyond `required` on the HTML inputs — out-of-range values (e.g. `condition` outside 1–5) will still be passed to the model.
+- No server-side validation beyond `required` on the HTML inputs - out-of-range values (e.g. `condition` outside 1–5) will still be passed to the model.
 - Debug mode is off by default in `app.py`, which is correct for production but means you won't get detailed error pages locally unless you add `debug=True`.
 
 ## License
