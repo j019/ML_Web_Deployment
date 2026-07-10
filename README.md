@@ -2,13 +2,13 @@
 
 A Flask web app that serves a Ridge regression model predicting house prices from a handful of property features (King County, WA housing data). Fill in a small form, get back an estimated price.
 
-![App preview]((https://github.com/j019/ML_Web_Deployment/blob/main/demo_screenshot.png))
+![App preview](https://github.com/j019/ML_Web_Deployment/blob/main/demo_screenshot.png)
 
 > Screenshot is rendered from this repo's `templates/index.html`. Fonts may render slightly differently locally depending on whether Google Fonts can load in your browser.
 
 ## How it works
 
-![Architecture pipeline]((https://github.com/j019/ML_Web_Deployment/blob/main/architecture.png))
+![Architecture pipeline](https://github.com/j019/ML_Web_Deployment/blob/main/architecture.png)
 
 ```
 house_price_prediction.csv → model.py (Ridge regression) → model.pkl → app.py (Flask) → templates/index.html
@@ -50,7 +50,7 @@ ML_Web_Deployment/
 
 The page also includes an inline walkthrough of `model.py` and `app.py` for anyone new to the repo:
 
-![Documentation panel example]((https://github.com/j019/ML_Web_Deployment/blob/main/demo_code_section.png))
+![Documentation panel example](https://github.com/j019/ML_Web_Deployment/blob/main/demo_code_section.png)
 
 ## Getting started locally
 
