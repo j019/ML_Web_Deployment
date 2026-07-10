@@ -1,0 +1,11 @@
+### EC2 Setup (AWS)
+########## Libraries to be setup #######
+sudo apt-get update
+sudo apt-get install python3
+sudo apt-get install python3-pip
+sudo apt-get install python3-venv
+python3 -m venv myenv
+source ~/myenv/bin/activate
+
+pip3 install --upgrade  pip
+pip3 install pandas flask scikit-learn 

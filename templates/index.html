@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--From https://codepen.io/frytyler/pen/EGdtg-->
+<head>
+<meta charset="UTF-8">
+<title>The Valuation Ledger // House Price Model</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prata&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2ECDD;
+    --paper-2:#FBF7EC;
+    --forest:#21392A;
+    --forest-deep:#152219;
+    --wine:#6E1F2E;
+    --wine-bright:#8C2C3F;
+    --gold:#A9863C;
+    --gold-bright:#CDA355;
+    --ink:#2B2620;
+    --ink-soft:#6B6151;
+    --line: rgba(33,57,42,0.22);
+    --line-dim: rgba(33,57,42,0.12);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    perspective:1400px;
+  }
+
+  /* faint chain-stitch ledger texture */
+  body::before{
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 37px, var(--line-dim) 38px);
+    opacity:0.6;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .wrap{position:relative; z-index:1;}
+
+  .statusbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 5vw;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--line);
+  }
+  .statusbar .dot{color:var(--wine);}
+
+  /* ---------- hero / ledger entry ---------- */
+  .hero{
+    padding:76px 5vw 84px;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.24em;
+    text-transform:uppercase;
+    color:var(--wine);
+    margin:0 0 18px;
+  }
+  h1{
+    font-family:'Prata',serif;
+    font-weight:400;
+    font-size:clamp(30px,4.2vw,46px);
+    line-height:1.18;
+    letter-spacing:0.002em;
+    margin:0 0 18px;
+    max-width:16ch;
+    color:var(--forest-deep);
+  }
+  h1 em{
+    font-style:italic;
+    color:var(--wine);
+  }
+  .hero p.lede{
+    max-width:58ch;
+    color:var(--ink-soft);
+    font-size:16px;
+    margin:0 0 44px;
+  }
+
+  .form-grid{
+    display:grid;
+    grid-template-columns:1.15fr 1fr;
+    gap:48px;
+    align-items:start;
+  }
+  @media (max-width:860px){ .form-grid{grid-template-columns:1fr;} }
+
+  /* the whole entry sits on a "page" that tilts gently toward the cursor */
+  .ledger-stage{ position:relative; }
+  .ledger-page{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:34px 34px 30px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 26px 50px -22px rgba(21,34,25,0.35),
+      0 10px 20px -12px rgba(21,34,25,0.25);
+    transform-style:preserve-3d;
+    will-change:transform;
+    transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .ledger-page.is-tilted{ transition:transform .08s linear; }
+
+  /* stacked pages peeking out behind, for physical depth */
+  .ledger-page::before,
+  .ledger-page::after{
+    content:'';
+    position:absolute;
+    left:6px; right:6px;
+    height:100%;
+    top:0;
+    background:var(--paper-2);
+    border:1px solid var(--line-dim);
+    z-index:-1;
+  }
+  .ledger-page::before{ transform:translate(7px,7px) rotate(0.6deg); }
+  .ledger-page::after{ transform:translate(14px,14px) rotate(1.1deg); opacity:.7; }
+
+  .entry-no{
+    display:flex; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:22px;
+    transform:translateZ(16px);
+  }
+  .entry-no .no{
+    color:var(--paper-2);
+    background:var(--forest);
+    padding:4px 9px;
+    letter-spacing:.06em;
+  }
+
+  form{ display:flex; flex-direction:column; gap:18px; transform:translateZ(16px); }
+
+  .field label{
+    display:flex; justify-content:space-between;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:7px;
+  }
+  .field label .unit{ color:var(--gold); letter-spacing:.04em; }
+
+  .field input{
+    width:100%;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:0;
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    font-size:15px;
+    padding:12px 14px;
+    outline:none;
+    box-shadow:0 1px 3px rgba(21,34,25,.06) inset;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input::placeholder{ color:rgba(43,38,32,0.32); }
+  .field input:focus{
+    border-color:var(--wine);
+    box-shadow:0 1px 3px rgba(21,34,25,.06) inset, 0 0 0 3px rgba(110,31,46,0.14);
+  }
+  .field input:focus-visible{ outline:2px solid var(--wine); outline-offset:2px; }
+
+  button{
+    margin-top:6px;
+    background:var(--forest);
+    color:var(--paper-2);
+    border:none;
+    border-radius:0;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:12.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    padding:15px 20px;
+    cursor:pointer;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.12) inset,
+      0 4px 0 var(--forest-deep),
+      0 12px 20px -8px rgba(21,34,25,.45);
+    transition:background .15s ease, box-shadow .08s ease, transform .08s ease;
+    transform:translateZ(30px);
+  }
+  button:hover{ background:var(--wine); box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 5px 0 #4a1420, 0 16px 24px -8px rgba(110,31,46,.45); transform:translateY(-1px) translateZ(30px); }
+  button:active{ transform:translateY(3px) translateZ(30px); box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 1px 0 var(--forest-deep), 0 4px 10px -4px rgba(21,34,25,.4); }
+  button:focus-visible{ outline:2px solid var(--gold-bright); outline-offset:3px; }
+
+  /* ---------- wax-seal result stamp ---------- */
+  .result-wrap{ margin-top:22px; min-height:1px; transform:translateZ(20px); }
+  .stamp{
+    display:inline-flex;
+    flex-direction:column;
+    gap:4px;
+    align-items:flex-start;
+    background:radial-gradient(120% 140% at 30% 20%, #8a2739, var(--wine) 55%, #591220 100%);
+    color:var(--paper-2);
+    border:1px solid rgba(0,0,0,.2);
+    padding:16px 22px;
+    transform:rotate(-2.5deg) translateZ(10px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.18) inset,
+      0 14px 26px -10px rgba(89,18,32,.65),
+      0 3px 0 rgba(0,0,0,.25);
+    animation:stampIn .5s cubic-bezier(.2,.9,.3,1.3) both;
+  }
+  @keyframes stampIn{
+    0%{ transform:rotate(-2.5deg) translateZ(10px) scale(0.55); opacity:0; }
+    100%{ transform:rotate(-2.5deg) translateZ(10px) scale(1); opacity:1; }
+  }
+  .stamp .stamp-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--gold-bright);
+  }
+  .stamp .stamp-value{
+    font-family:'Prata',serif;
+    font-size:17px;
+  }
+
+  /* ---------- side panel: appraisal provenance ---------- */
+  .spec-panel{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:26px 26px 24px;
+    box-shadow:0 20px 40px -22px rgba(21,34,25,.3);
+    transform:rotate(0.6deg);
+  }
+  .spec-panel .spec-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--wine);
+    margin-bottom:16px;
+    padding-bottom:12px;
+    border-bottom:1px dashed var(--line);
+  }
+  .spec-panel dl{ margin:0; display:grid; gap:12px; }
+  .spec-panel dl div{ display:flex; justify-content:space-between; gap:10px; border-bottom:1px dashed var(--line); padding-bottom:10px; font-size:13.5px;}
+  .spec-panel dt{ color:var(--ink-soft); }
+  .spec-panel dd{ margin:0; font-family:'IBM Plex Mono',monospace; color:var(--forest-deep); text-align:right; }
+  .spec-panel .seal-mark{
+    margin-top:18px;
+    width:52px; height:52px;
+    border-radius:50%;
+    border:2px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--gold);
+    text-align:center;
+    box-shadow:0 6px 14px -6px rgba(169,134,60,.5), inset 0 0 0 4px rgba(169,134,60,.08);
+    transform:rotate(-8deg);
+  }
+
+  /* ---------- doc sections ---------- */
+  section.doc{ padding:60px 5vw; border-bottom:1px solid var(--line); }
+  .section-head{ display:flex; align-items:baseline; gap:16px; margin-bottom:34px; }
+  .section-head .idx{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--wine); letter-spacing:0.1em; }
+  .section-head h2{ font-family:'Prata',serif; font-weight:400; font-size:25px; margin:0; color:var(--forest-deep); }
+  .section-head .rule{ flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent); }
+
+  /* pipeline as raised index cards, each lifts toward the viewer on hover */
+  .pipeline{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; align-items:stretch; }
+  .pipeline .node{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:18px 14px;
+    text-align:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--ink);
+    box-shadow:0 10px 18px -12px rgba(21,34,25,.3);
+    transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .pipeline .node:hover{ transform:translateY(-5px) translateZ(10px); box-shadow:0 18px 28px -14px rgba(21,34,25,.4); }
+  .pipeline .node .tag{ display:block; font-size:9.5px; color:var(--wine); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:6px; }
+  .pipeline .arrow{ display:flex; align-items:center; justify-content:center; color:var(--gold); font-size:16px; }
+  @media (max-width:860px){ .pipeline{grid-template-columns:1fr;} .pipeline .arrow{transform:rotate(90deg);} }
+
+  /* code panels look like a typed record card, with two faint pages behind it */
+  .code-panel{
+    position:relative;
+    background:var(--forest-deep);
+    border:1px solid var(--forest);
+    margin:26px 0 22px;
+    overflow:hidden;
+    box-shadow:0 22px 40px -20px rgba(21,34,25,.5);
+    transform-style:preserve-3d;
+  }
+  .code-panel::before,
+  .code-panel::after{
+    content:'';
+    position:absolute; inset:0;
+    border:1px solid var(--line-dim);
+    background:var(--paper-2);
+    z-index:-1;
+  }
+  .code-panel::before{ transform:translate(6px,-6px) rotate(0.8deg); }
+  .code-panel::after{ transform:translate(11px,-11px) rotate(1.4deg); opacity:.6; }
+  .code-panel .code-title{
+    display:flex; justify-content:space-between;
+    padding:10px 16px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:#cfd9d1;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+  }
+  .code-panel pre{ margin:0; padding:18px 20px; overflow-x:auto; font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.65; color:#e6e2d6;}
+  .code-panel code{ white-space:pre; }
+  .kw{color:#d99a6c;} .fn{color:var(--gold-bright);} .str{color:#9fd0a3;} .cm{color:#7b8a7c; font-style:italic;} .num{color:#7fb8d6;}
+
+  .annotations{ margin-top:16px; display:grid; gap:10px; }
+  .annotations .note{ display:flex; gap:12px; padding:12px 16px; background:var(--paper-2); border:1px solid var(--line); font-size:14.5px; box-shadow:0 8px 16px -12px rgba(21,34,25,.25); }
+  .annotations .note .ln{ font-family:'IBM Plex Mono',monospace; color:var(--wine); font-size:12px; white-space:nowrap; }
+  .annotations .note p{ margin:0; color:var(--ink-soft); }
+  .annotations .note strong{ color:var(--ink); font-weight:600; }
+
+  /* critical callout styled as a raised wax-sealed warning ticket */
+  .callout{
+    position:relative;
+    border:1px solid var(--wine);
+    background:var(--paper-2);
+    padding:20px 22px 20px 60px;
+    margin:24px 0;
+    box-shadow:0 16px 28px -16px rgba(110,31,46,.35);
+  }
+  .callout::before{
+    content:'!';
+    position:absolute;
+    left:16px; top:20px;
+    width:26px; height:26px;
+    border-radius:50%;
+    background:var(--wine);
+    color:var(--paper-2);
+    font-family:'Prata',serif;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 12px -4px rgba(110,31,46,.6);
+  }
+  .callout .callout-head{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--wine); margin-bottom:8px; }
+  .callout p{ margin:0; color:var(--ink); }
+  .callout p + p{ margin-top:10px; }
+
+  /* deployment steps as tabbed index cards, each lifted and slightly rotated */
+  .steps{ display:grid; gap:16px; }
+  .step{
+    display:grid; grid-template-columns:60px 1fr;
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:22px 22px;
+    box-shadow:0 14px 26px -16px rgba(21,34,25,.3);
+    transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .step:hover{ transform:translateY(-4px); box-shadow:0 20px 32px -16px rgba(21,34,25,.38); }
+  .step .num{ font-family:'Prata',serif; font-size:24px; color:var(--wine); }
+  .step h3{ margin:0 0 8px; font-family:'Prata',serif; font-weight:400; font-size:19px; color:var(--forest-deep); }
+  .step p{ margin:0 0 10px; color:var(--ink-soft); }
+  .term{ background:var(--forest-deep); border:1px solid var(--forest); padding:12px 16px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:#9fd0a3; overflow-x:auto; }
+  .term .prompt{ color:var(--gold-bright); }
+
+  .checklist{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+  .checklist li{
+    display:flex; gap:12px; align-items:flex-start;
+    padding:12px 16px;
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    font-size:14.5px; color:var(--ink-soft);
+    box-shadow:0 8px 16px -12px rgba(21,34,25,.25);
+    transition:transform .15s ease;
+  }
+  .checklist li:hover{ transform:translateX(4px); }
+  .checklist li::before{ content:'\2713'; color:var(--gold); flex-shrink:0; font-weight:600; }
+  .checklist li strong{ color:var(--ink); font-weight:600; }
+
+  footer{ padding:30px 5vw 46px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); letter-spacing:0.06em; text-transform:uppercase; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+
+  @media (prefers-reduced-motion:reduce){ .stamp{ animation:none; } .ledger-page{ transition:none; } }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="statusbar">
+    <span><span class="dot">&#9679;</span> LEDGER // RESIDENTIAL VALUATION DIVISION</span>
+    <span>STATUS: OPEN FOR ENTRY</span>
+  </div>
+
+  <!-- ===================== FUNCTIONAL FORM ===================== -->
+  <div class="hero">
+    <p class="eyebrow">Register of Appraisals</p>
+    <h1>Record the details, receive an <em>estimated value</em></h1>
+    <p class="lede">Enter the property's particulars below. The model consults prior King County entries and returns an appraised figure.</p>
+
+    <div class="form-grid">
+      <div class="ledger-stage">
+        <div class="ledger-page">
+          <div class="entry-no"><span class="no">ENTRY&nbsp;014</span><span>Residential &middot; Single Parcel</span></div>
+
+          <!-- Main Input For Receiving Query to our ML -->
+          <form action="{{ url_for('predict') }}" method="post">
+            <div class="field">
+              <label for="sqft_living15">Sqft Living <span class="unit">SQ FT</span></label>
+              <input type="text" id="sqft_living15" name="sqft_living15" placeholder="e.g. 1800" required="required" />
+            </div>
+
+            <div class="field">
+              <label for="sqft_above">Sqft Above <span class="unit">SQ FT</span></label>
+              <input type="text" id="sqft_above" name="sqft_above" placeholder="e.g. 1500" required="required" />
+            </div>
+
+            <div class="field">
+              <label for="grade">Grade <span class="unit">SCALE 1&ndash;13</span></label>
+              <input type="text" id="grade" name="grade" placeholder="e.g. 7" required="required" />
+            </div>
+
+            <div class="field">
+              <label for="condition">Condition <span class="unit">SCALE 1&ndash;5</span></label>
+              <input type="text" id="condition" name="condition" placeholder="e.g. 3" required="required" />
+            </div>
+
+            <div class="field">
+              <label for="bedrooms">No. of Bedrooms <span class="unit">COUNT</span></label>
+              <input type="text" id="bedrooms" name="bedrooms" placeholder="e.g. 3" required="required" />
+            </div>
+
+            <div class="field">
+              <label for="floors">Floors <span class="unit">COUNT</span></label>
+              <input type="text" id="floors" name="floors" placeholder="e.g. 2" required="required" />
+            </div>
+
+            <button type="submit">Appraise This Property</button>
+          </form>
+
+          <div class="result-wrap">
+            {% if prediction_text %}
+            <div class="stamp">
+              <span class="stamp-label">Appraised</span>
+              <span class="stamp-value">{{ prediction_text }}</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="spec-panel">
+        <div class="spec-title">Provenance of This Model</div>
+        <dl>
+          <div><dt>Method</dt><dd>Ridge Regression</dd></div>
+          <div><dt>Particulars taken</dt><dd>6</dd></div>
+          <div><dt>Order of record</dt><dd>living15&nbsp;&rarr;&nbsp;above&nbsp;&rarr;&nbsp;grade&nbsp;&rarr;&nbsp;cond.&nbsp;&rarr;&nbsp;bed&nbsp;&rarr;&nbsp;floors</dd></div>
+          <div><dt>District</dt><dd>King County, WA</dd></div>
+          <div><dt>Register</dt><dd>Vol. 01 / Predict</dd></div>
+        </dl>
+        <div class="seal-mark">CERT<br>MODEL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ARCHITECTURE ===================== -->
+  <section class="doc">
+    <div class="section-head">
+      <span class="idx">I.</span>
+      <h2>How a Figure Is Reached</h2>
+      <span class="rule"></span>
+    </div>
+    <div class="pipeline">
+      <div class="node"><span class="tag">Data</span>house_price_prediction.csv</div>
+      <div class="arrow">&#8594;</div>
+      <div class="node"><span class="tag">Train</span>model.py &rarr; Ridge()</div>
+      <div class="arrow">&#8594;</div>
+      <div class="node"><span class="tag">Artifact</span>model.pkl</div>
+    </div>
+    <div class="pipeline" style="margin-top:14px; grid-template-columns:repeat(7,1fr);">
+      <div class="node"><span class="tag">Serve</span>app.py &rarr; Flask</div>
+      <div class="arrow">&#8594;</div>
+      <div class="node"><span class="tag">Route</span>/predict (POST)</div>
+      <div class="arrow">&#8594;</div>
+      <div class="node"><span class="tag">Render</span>index.html</div>
+      <div class="arrow">&#8594;</div>
+      <div class="node"><span class="tag">Output</span>Appraised figure</div>
+    </div>
+  </section>
+
+  <!-- ===================== MODEL.PY ===================== -->
+  <section class="doc">
+    <div class="section-head">
+      <span class="idx">II.</span>
+      <h2>model.py &mdash; Training the Model</h2>
+      <span class="rule"></span>
+    </div>
+    <p style="color:var(--ink-soft); max-width:70ch;">This script reads the housing dataset, selects six columns as features, fits a Ridge regression against <code>price</code>, and freezes the trained model into <code>model.pkl</code> so <code>app.py</code> never has to retrain it.</p>
+
+    <div class="code-panel">
+      <div class="code-title"><span>model.py</span><span>python</span></div>
+      <pre><code><span class="cm"># Importing the libraries</span>
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> pickle
+
+dataset = pd.<span class="fn">read_csv</span>(<span class="str">'house_price_prediction.csv'</span>)
+
+top_6 = [<span class="str">'sqft_living15'</span>,<span class="str">'sqft_above'</span>,<span class="str">'grade'</span>,
+<span class="str">'condition'</span>,<span class="str">'bedrooms'</span>,<span class="str">'floors'</span>]
+
+X = dataset.loc[:, top_6]
+y = dataset[<span class="str">'price'</span>]
+
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> Ridge
+regressor = <span class="fn">Ridge</span>(random_state=<span class="num">7</span>)
+
+<span class="cm"># Fitting model with training data</span>
+regressor.<span class="fn">fit</span>(X, y)
+
+<span class="cm"># Saving model to disk</span>
+pickle.<span class="fn">dump</span>(regressor, <span class="fn">open</span>(<span class="str">'model.pkl'</span>,<span class="str">'wb'</span>))
+
+<span class="cm"># Loading model to compare the results</span>
+model = pickle.<span class="fn">load</span>(<span class="fn">open</span>(<span class="str">'model.pkl'</span>,<span class="str">'rb'</span>))
+<span class="fn">print</span>(model.<span class="fn">predict</span>([[<span class="num">1440</span>,<span class="num">1730</span>,<span class="num">7</span>,<span class="num">3</span>,<span class="num">3</span>,<span class="num">2</span>]]))
+</code></pre>
+    </div>
+
+    <div class="annotations">
+      <div class="note"><span class="ln">top_6</span><p><strong>Feature order is the contract.</strong> The list <code>['sqft_living15','sqft_above','grade','condition','bedrooms','floors']</code> defines the exact column order Ridge learns weights against &mdash; this order has to be respected everywhere downstream.</p></div>
+      <div class="note"><span class="ln">Ridge()</span><p><strong>Why Ridge, not plain linear regression.</strong> Ridge adds L2 regularization, which keeps coefficients steadier when features like <code>sqft_living15</code> and <code>sqft_above</code> are correlated with each other.</p></div>
+      <div class="note"><span class="ln">pickle.dump</span><p><strong>model.pkl is the handoff.</strong> This file is the only thing <code>app.py</code> needs from this script &mdash; a frozen snapshot of the fitted regressor, ready to run <code>.predict()</code> with no dataset in sight.</p></div>
+    </div>
+  </section>
+
+  <!-- ===================== APP.PY ===================== -->
+  <section class="doc">
+    <div class="section-head">
+      <span class="idx">III.</span>
+      <h2>app.py &mdash; Serving Appraisals</h2>
+      <span class="rule"></span>
+    </div>
+    <p style="color:var(--ink-soft); max-width:70ch;">Flask loads the frozen model once at startup, renders this entry form on <code>/</code>, and on <code>/predict</code> turns the submitted fields into a figure.</p>
+
+    <div class="code-panel">
+      <div class="code-title"><span>app.py</span><span>python</span></div>
+      <pre><code><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> flask <span class="kw">import</span> Flask, request, jsonify, render_template
+<span class="kw">import</span> pickle
+
+app = <span class="fn">Flask</span>(__name__)
+model = pickle.<span class="fn">load</span>(<span class="fn">open</span>(<span class="str">'model.pkl'</span>, <span class="str">'rb'</span>))
+
+<span class="fn">@app.route</span>(<span class="str">'/'</span>) <span class="cm"># index or landing page of website</span>
+<span class="kw">def</span> <span class="fn">home</span>():
+    <span class="kw">return</span> render_template(<span class="str">'index.html'</span>)
+
+<span class="cm"># 127.0.0.1:9000/predict</span>
+<span class="fn">@app.route</span>(<span class="str">'/predict'</span>,methods=[<span class="str">'POST'</span>]) <span class="cm"># post method is used to send parameters in http request</span>
+<span class="kw">def</span> <span class="fn">predict</span>():
+    <span class="str">'''For rendering results on HTML GUI'''</span>
+    int_features = [<span class="fn">int</span>(x) <span class="kw">for</span> x <span class="kw">in</span> request.form.values()]
+    final_features = [np.<span class="fn">array</span>(int_features)]
+    prediction = model.<span class="fn">predict</span>(final_features)
+    output = <span class="fn">round</span>(prediction[<span class="num">0</span>], <span class="num">2</span>)
+    <span class="kw">return</span> render_template(<span class="str">'index.html'</span>,
+        prediction_text=<span class="str">'Predicted House price is {}'</span>.<span class="fn">format</span>(output))
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    app.<span class="fn">run</span>(host=<span class="str">"0.0.0.0"</span>,port=<span class="num">9000</span>) <span class="cm"># EC2 on AWS</span>
+</code></pre>
+    </div>
+
+    <div class="annotations">
+      <div class="note"><span class="ln">model =</span><p><strong>Loaded once, reused forever.</strong> The pickle load happens at import time, outside any route &mdash; deserialized a single time when the server starts, not on every request.</p></div>
+      <div class="note"><span class="ln">request.form.values()</span><p><strong>Order-dependent by design.</strong> This pulls values in the order the fields appear on this page, not by name. It only works because this form's field order matches <code>top_6</code> exactly.</p></div>
+      <div class="note"><span class="ln">int(x)</span><p><strong>Everything is cast to int.</strong> Fine for whole numbers like grade or bedrooms, but throws a <code>ValueError</code> on a decimal &mdash; worth knowing before this goes live.</p></div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-head">Critical &mdash; Field Order Must Match</div>
+      <p>The trained model expects features in this exact order: <strong>sqft_living15 &rarr; sqft_above &rarr; grade &rarr; condition &rarr; bedrooms &rarr; floors</strong>.</p>
+      <p>Since <code>request.form.values()</code> carries no field names, the inputs above must appear in this same order, top to bottom, or the model will silently value the wrong columns. The form on this page currently matches correctly.</p>
+    </div>
+  </section>
+
+  <!-- ===================== DEPLOYMENT ===================== -->
+  <section class="doc">
+    <div class="section-head">
+      <span class="idx">IV.</span>
+      <h2>Bringing the Register Online</h2>
+      <span class="rule"></span>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <div>
+          <h3>Set up the environment</h3>
+          <p>Create an isolated environment and install dependencies before touching the model.</p>
+          <div class="term"><span class="prompt">$</span> python -m venv venv && source venv/bin/activate<br><span class="prompt">$</span> pip install flask numpy pandas scikit-learn</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">02</div>
+        <div>
+          <h3>Train once, freeze the artifact</h3>
+          <p>Run <code>model.py</code> locally to generate <code>model.pkl</code>. This only needs to happen once, or whenever the dataset or features change &mdash; the server never retrains.</p>
+          <div class="term"><span class="prompt">$</span> python model.py</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">03</div>
+        <div>
+          <h3>Confirm the form matches the model</h3>
+          <p>Double-check this page's input order against <code>top_6</code> in <code>model.py</code>. This is the single most common source of silently wrong appraisals.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">04</div>
+        <div>
+          <h3>Run it locally first</h3>
+          <p>Sanity-check on your own machine before touching a server.</p>
+          <div class="term"><span class="prompt">$</span> python app.py<br><span style="color:#6b7a6c;"># visit http://127.0.0.1:9000</span></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">05</div>
+        <div>
+          <h3>Move it to an EC2 instance</h3>
+          <p>Since <code>app.run(host="0.0.0.0", port=9000)</code> is already set, the server will accept external traffic. Open the port in your security group, then start it the same way.</p>
+          <div class="term"><span class="prompt">$</span> scp -r ./project ec2-user@&lt;your-ec2-ip&gt;:~/app<br><span class="prompt">$</span> ssh ec2-user@&lt;your-ec2-ip&gt;<br><span class="prompt">$</span> cd ~/app && pip install -r requirements.txt<br><span class="prompt">$</span> python app.py</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">06</div>
+        <div>
+          <h3>Harden it for production</h3>
+          <p>Flask's built-in server is fine for testing, not for real traffic. Swap it for Gunicorn behind Nginx, and keep it alive with a process manager.</p>
+          <div class="term"><span class="prompt">$</span> pip install gunicorn<br><span class="prompt">$</span> gunicorn --bind 0.0.0.0:9000 app:app</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CHECKLIST ===================== -->
+  <section class="doc" style="border-bottom:none;">
+    <div class="section-head">
+      <span class="idx">V.</span>
+      <h2>Before This Entry Opens to the Public</h2>
+      <span class="rule"></span>
+    </div>
+    <ul class="checklist">
+      <li><strong>model.pkl exists</strong> and was generated from the same feature set the form submits.</li>
+      <li><strong>requirements.txt</strong> pins flask, numpy, pandas, and scikit-learn versions so the pickle loads the same way on the server as it did locally.</li>
+      <li><strong>Security group / firewall</strong> allows inbound traffic on port 9000, or whichever port you choose.</li>
+      <li><strong>Form field order</strong> on this page matches <code>top_6</code> exactly &mdash; sqft_living15, sqft_above, grade, condition, bedrooms, floors.</li>
+      <li><strong>Debug mode is off</strong> before this is public &mdash; <code>app.run()</code> currently has no <code>debug=True</code>, which is correct for production.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Ledger reference // house-price-model</span>
+    <span>Open for new entries</span>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var page = document.querySelector('.ledger-page');
+    var stage = document.querySelector('.ledger-stage');
+    if (!page || !stage) return;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    var maxTilt = 5;
+
+    stage.addEventListener('mousemove', function (e) {
+      var rect = stage.getBoundingClientRect();
+      var x = (e.clientX - rect.left) / rect.width;
+      var y = (e.clientY - rect.top) / rect.height;
+      var rotateY = (x - 0.5) * (maxTilt * 2);
+      var rotateX = (0.5 - y) * (maxTilt * 2);
+      page.classList.add('is-tilted');
+      page.style.transform = 'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
+    });
+
+    stage.addEventListener('mouseleave', function () {
+      page.classList.remove('is-tilted');
+      page.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    });
+  })();
+</script>
+</body>
+</html>
